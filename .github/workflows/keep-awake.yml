@@ -1,0 +1,43 @@
+name: keep-streamlit-awake
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"   # runs every 4 hours (UTC)
+  workflow_dispatch:         # lets you run it manually from the Actions tab
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Visit the app (and wake it if asleep)
+        run: |
+          python - <<'EOF'
+          from playwright.sync_api import sync_playwright
+
+          URL = "https://capitalmatch-rithwik.streamlit.app/"
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.goto(URL, timeout=90000)
+              page.wait_for_timeout(8000)
+
+              btn = page.get_by_role("button", name="Yes, get this app back up")
+              if btn.count():
+                  print("App was asleep - waking it up")
+                  btn.click()
+                  page.wait_for_timeout(90000)  # give it time to boot
+              else:
+                  print("App is awake")
+
+              browser.close()
+          EOF
